@@ -33,16 +33,13 @@ def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
     Yh=np.linspace(np.min(Y_inp),np.max(Y_inp),np.rint(smoothing*len(Y_inp)))
     f_col_dist=interpolate.interp1d(X_inp,init_column_dist)
     intp_col_dist=f_col_dist(Xh)
+    
 #   Make sure interpolated values are positive
-    intp_col_dist=intp_col_dist.clip(min=0.0)  
-     
+    intp_col_dist=intp_col_dist.clip(min=0.0)       
     intp_col_dist=intp_col_dist/np.sum(intp_col_dist)
-
-    #indx_X=GenerateParticle(intp_col_dist,rand_x)
-  
-    #x0=Xh[indx_X]
     x0=GenerateParticleX(intp_col_dist,rand_x,Xh)
-#    find corresponding indices and weights in the other dimension
+
+#   Find corresponding indices and weights in the other dimension
     indx_temp = np.argsort(np.square(x0-X_inp))
 
     indx_temp = indx_temp[:2]
@@ -59,47 +56,32 @@ def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
     
     init_row_dist=tw1*dist_in[:,min_val] + tw2*dist_in[:,max_val]
 
-#pick column distribution type
+#   Pick column distribution type
 
     f_row_dist=interpolate.interp1d(Y_inp,init_row_dist)
     intp_row_dist=f_row_dist(Yh)
+    
 #   Make sure interpolated values are positive
-    intp_row_dist=intp_row_dist.clip(min=0.0)
-    
+    intp_row_dist=intp_row_dist.clip(min=0.0)   
     intp_row_dist=intp_row_dist/np.sum(intp_row_dist)
-    #indx_Y=GenerateParticle(intp_row_dist,rand_y)
-    #y0=Yh[indx_Y]
-    
-#    x0=GenerateParticleX(intp_col_dist,rand_x,Xh)
     y0=GenerateParticleY(intp_row_dist,rand_y,Yh)
     
     return np.vstack((x0,y0,DDDz,NoOfElec))
     
-def GenerateParticle(PDF_xy,DDDD):
-    
-    P_NORMAL=PDF_xy
-    P_CDF=np.cumsum(P_NORMAL)
-    P_CDF=np.sort(P_CDF)
-    R=np.empty((1,1))
-    R.fill(DDDD)
-    indexes = np.digitize(R,P_CDF)
-    return indexes
  
     
-def GenerateParticleX(PDF_xy,DDDD,Xhin):
-    P_NORMAL=PDF_xy
-    P_CDF=np.cumsum(P_NORMAL)
-    P_CDF=np.sort(P_CDF)
-    ff_X = interpolate.interp1d(P_CDF, Xhin,fill_value='extrapolate')
-    x0=ff_X(DDDD)
+def GenerateParticleX(PDF_x,ranDx,Xhin):
+    Px_CDF=np.cumsum(PDF_x)
+    Px_CDF=np.sort(Px_CDF)
+    f_X = interpolate.interp1d(Px_CDF, Xhin,fill_value='extrapolate')
+    x0=f_X(ranDx)
     return x0
 
-def GenerateParticleY(PDF_xy,DDDD,Yhin):
-    P_NORMAL=PDF_xy/np.sum(PDF_xy)
-    P_CDF=np.cumsum(P_NORMAL)
-    P_CDF=np.sort(P_CDF)
-    ff_Y = interpolate.interp1d(P_CDF, Yhin,fill_value='extrapolate')
-    y0=ff_Y(DDDD)
+def GenerateParticleY(PDF_y,ranDy,Yhin):
+    Py_CDF=np.cumsum(PDF_y)
+    Py_CDF=np.sort(Py_CDF)
+    f_Y = interpolate.interp1d(Py_CDF, Yhin,fill_value='extrapolate')
+    y0=f_Y(ranDy)
     return y0
    
 def HaltonRandomNumber(dims, nb_pts):
@@ -231,7 +213,7 @@ if __name__ == '__main__':
     e_ch=1.602e-19              # charge of one electron
     
     #*************************************************************
-    JDFSmoothing=10.0
+    JDFSmoothing=1.0
     
     
     
