@@ -38,13 +38,14 @@ def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
      
     intp_col_dist=intp_col_dist/np.sum(intp_col_dist)
 
-    indx_X=GenerateParticle(intp_col_dist,rand_x)
+    #indx_X=GenerateParticle(intp_col_dist,rand_x)
   
-    x0=Xh[indx_X]
-
+    #x0=Xh[indx_X]
+    x0=GenerateParticleX(intp_col_dist,rand_x,Xh)
 #    find corresponding indices and weights in the other dimension
-    indx_temp = np.argsort(np.square(x0-X_inp))   
-    indx_temp = indx_temp[:,:2]
+    indx_temp = np.argsort(np.square(x0-X_inp))
+
+    indx_temp = indx_temp[:2]
 
 
     min_val = np.min(indx_temp)
@@ -60,15 +61,18 @@ def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
 
 #pick column distribution type
 
-    f_row_dist=interpolate.interp1d(Y_inp,init_row_dist[0])
+    f_row_dist=interpolate.interp1d(Y_inp,init_row_dist)
     intp_row_dist=f_row_dist(Yh)
 #   Make sure interpolated values are positive
     intp_row_dist=intp_row_dist.clip(min=0.0)
     
     intp_row_dist=intp_row_dist/np.sum(intp_row_dist)
-    indx_Y=GenerateParticle(intp_row_dist,rand_y)
-    y0=Yh[indx_Y]
-
+    #indx_Y=GenerateParticle(intp_row_dist,rand_y)
+    #y0=Yh[indx_Y]
+    
+#    x0=GenerateParticleX(intp_col_dist,rand_x,Xh)
+    y0=GenerateParticleY(intp_row_dist,rand_y,Yh)
+    
     return np.vstack((x0,y0,DDDz,NoOfElec))
     
 def GenerateParticle(PDF_xy,DDDD):
@@ -80,6 +84,22 @@ def GenerateParticle(PDF_xy,DDDD):
     indexes = np.digitize(R,P_CDF)
     return indexes
  
+    
+def GenerateParticleX(PDF_xy,DDDD,Xhin):
+    P_NORMAL=PDF_xy/np.sum(PDF_xy)
+    P_CDF=np.cumsum(P_NORMAL)
+    P_CDF=np.sort(P_CDF)
+    ff_X = interpolate.interp1d(P_CDF, Xhin)
+    x0=ff_X(DDDD)
+    return x0
+
+def GenerateParticleY(PDF_xy,DDDD,Yhin):
+    P_NORMAL=PDF_xy/np.sum(PDF_xy)
+    P_CDF=np.cumsum(P_NORMAL)
+    P_CDF=np.sort(P_CDF)
+    ff_Y = interpolate.interp1d(P_CDF, Yhin)
+    y0=ff_Y(DDDD)
+    return y0
    
 def HaltonRandomNumber(dims, nb_pts):
     hArr = np.empty(nb_pts * dims)
@@ -210,7 +230,7 @@ if __name__ == '__main__':
     e_ch=1.602e-19              # charge of one electron
     
     #*************************************************************
-    JDFSmoothing=100.0
+    JDFSmoothing=10.0
     
     
     
@@ -344,11 +364,11 @@ if __name__ == '__main__':
     
 #==============================================================================
 # ## SERIAL VERSION DEBUG ONLY !!!
-#     for slice_number in range(0,NumberOfSlices):
+#    for slice_number in range(0,NumberOfSlices):
 #        ZZZ=minz+(slice_number*StepZ)
 #        NoOfElec=(Non_Zero_Z)*(f_Z(ZZZ)/(NumberOfSlices))/(Num_Of_Slice_Particles)
 #        if NoOfElec>0:
-#            results=SliceCalculate(z_hlt[:,0],slice_number,StepZ,NumberOfSlices,interpolator,f_Z,new_x,new_y,Non_Zero_Z,Num_Of_Slice_Particles,minz,JDFSmoothing,RandomHaltonSequence)
+#            results=SliceCalculate(binnumber_X,binnumber_Y,z_hlt[:,1],slice_number,StepZ,NumberOfSlices,interpolator,f_Z,new_x,new_y,Non_Zero_Z,Num_Of_Slice_Particles,minz,JDFSmoothing,RandomHaltonSequence)
 #            result2.append(results)
 #==============================================================================
 

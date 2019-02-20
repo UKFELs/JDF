@@ -5,4 +5,4 @@ X_DensitySampling=40
 Y_DensitySampling=40
 Z_DensitySampling=80
 BeamStretchFactor=0.0
-NumOfSliceParticles=400
+NumOfSliceParticles=800
