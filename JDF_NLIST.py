@@ -76,7 +76,8 @@ def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
     return np.vstack((x0,y0,DDDz,NoOfElec))
     
 def GenerateParticle(PDF_xy,DDDD):
-    P_NORMAL=PDF_xy/np.sum(PDF_xy)
+    
+    P_NORMAL=PDF_xy
     P_CDF=np.cumsum(P_NORMAL)
     P_CDF=np.sort(P_CDF)
     R=np.empty((1,1))
@@ -86,10 +87,10 @@ def GenerateParticle(PDF_xy,DDDD):
  
     
 def GenerateParticleX(PDF_xy,DDDD,Xhin):
-    P_NORMAL=PDF_xy/np.sum(PDF_xy)
+    P_NORMAL=PDF_xy
     P_CDF=np.cumsum(P_NORMAL)
     P_CDF=np.sort(P_CDF)
-    ff_X = interpolate.interp1d(P_CDF, Xhin)
+    ff_X = interpolate.interp1d(P_CDF, Xhin,fill_value='extrapolate')
     x0=ff_X(DDDD)
     return x0
 
@@ -97,7 +98,7 @@ def GenerateParticleY(PDF_xy,DDDD,Yhin):
     P_NORMAL=PDF_xy/np.sum(PDF_xy)
     P_CDF=np.cumsum(P_NORMAL)
     P_CDF=np.sort(P_CDF)
-    ff_Y = interpolate.interp1d(P_CDF, Yhin)
+    ff_Y = interpolate.interp1d(P_CDF, Yhin,fill_value='extrapolate')
     y0=ff_Y(DDDD)
     return y0
    
