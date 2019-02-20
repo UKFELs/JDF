@@ -2,7 +2,7 @@
 """
 Created on Fri Sep 14 11:07:07 2018
 
-@author: ptracz
+@author: Piotr Traczykowski
 """
 import tables
 import numpy as np
@@ -27,50 +27,48 @@ os.nice(20)
 ##################################################################
 
 
-def JDF_CORE(f_Z,Xin,Yin,dist_in,varargin,DDDx,DDDy,DDDz,NoOfElec):
-    res=varargin
-    col_dist=np.sum(dist_in,0)
-    Xh=np.linspace(np.min(Xin),np.max(Xin),np.rint(res*len(Xin)))
-    Yh=np.linspace(np.min(Yin),np.max(Yin),np.rint(res*len(Yin)))
-    f_col_dist=interpolate.interp1d(Xin,col_dist)
-    col_dist=f_col_dist(Xh)
+def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
+    init_column_dist=np.sum(dist_in,0)
+    Xh=np.linspace(np.min(X_inp),np.max(X_inp),np.rint(smoothing*len(X_inp)))
+    Yh=np.linspace(np.min(Y_inp),np.max(Y_inp),np.rint(smoothing*len(Y_inp)))
+    f_col_dist=interpolate.interp1d(X_inp,init_column_dist)
+    intp_col_dist=f_col_dist(Xh)
 #   Make sure interpolated values are positive
-    col_dist=col_dist.clip(min=0.0)  
+    intp_col_dist=intp_col_dist.clip(min=0.0)  
      
-    col_dist=col_dist/np.sum(col_dist)
-    DDDgx=DDDx
-    DDDgy=DDDy
-    indx_X=GenerateParticle(col_dist,DDDgx)
+    intp_col_dist=intp_col_dist/np.sum(intp_col_dist)
+
+    indx_X=GenerateParticle(intp_col_dist,rand_x)
   
     x0=Xh[indx_X]
 
 #    find corresponding indices and weights in the other dimension
-    indx_temp = np.argsort(np.square(x0-Xin))   
+    indx_temp = np.argsort(np.square(x0-X_inp))   
     indx_temp = indx_temp[:,:2]
 
 
     min_val = np.min(indx_temp)
     max_val = np.max(indx_temp)
 
-    X_min=Xin[min_val]
-    X_max=Xin[max_val]
+    X_min=X_inp[min_val]
+    X_max=X_inp[max_val]
     
     tw1=1.0-(x0-X_min)/(X_max-X_min)
     tw2=1.0-(X_max-x0)/(X_max-X_min)
     
-    row_dist=tw1*dist_in[:,min_val] + tw2*dist_in[:,max_val]
+    init_row_dist=tw1*dist_in[:,min_val] + tw2*dist_in[:,max_val]
 
 #pick column distribution type
 
-    f_row_dist=interpolate.interp1d(Yin,row_dist[0])
-    row_dist=f_row_dist(Yh)
-    row_dist=row_dist/np.sum(row_dist)
-    indx_Y=GenerateParticle(row_dist,DDDgy)
+    f_row_dist=interpolate.interp1d(Y_inp,init_row_dist[0])
+    intp_row_dist=f_row_dist(Yh)
+#   Make sure interpolated values are positive
+    intp_row_dist=intp_row_dist.clip(min=0.0)
+    
+    intp_row_dist=intp_row_dist/np.sum(intp_row_dist)
+    indx_Y=GenerateParticle(intp_row_dist,rand_y)
     y0=Yh[indx_Y]
-    #NoOfElec=(Non_Zero_Z)*(f_Z(DDDz)/(NumberOfSlices))/(Num_Of_Slice_Particles)
-    #print NoOfElec
-    #if NoOfElec<=0.0:
-    #    print 'Negative or zero electron number in slice !!!!'
+
     return np.vstack((x0,y0,DDDz,NoOfElec))
     
 def GenerateParticle(PDF_xy,DDDD):
@@ -83,27 +81,28 @@ def GenerateParticle(PDF_xy,DDDD):
     return indexes
  
    
-def HaltonRandomNumber(dim, nbpts):
-    h = np.empty(nbpts * dim)
-    h.fill(np.nan)
-    p = np.empty(nbpts)
-    p.fill(np.nan)
-    P = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43]
-    lognbpts = log(nbpts + 1)
-    for i in range(dim):
-        b = P[i]
-        n = int(ceil(lognbpts / log(b)))
+def HaltonRandomNumber(dims, nb_pts):
+    hArr = np.empty(nb_pts * dims)
+    hArr.fill(np.nan)
+    pArr = np.empty(nb_pts)
+    pArr.fill(np.nan)
+    Primes = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,\
+              83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163]
+    log_nb_pts = log(nb_pts + 1)
+    for i in range(dims):
+        b = Primes[i]
+        n = np.int(np.ceil(log_nb_pts / np.log(b)))
         for t in range(n):
-            p[t] = pow(b, -(t + 1) )
+            pArr[t] = np.float_power(b, -(t + 1) )
 
-        for j in range(nbpts):
+        for j in range(nb_pts):
             d = j + 1
-            sum_ = fmod(d, b) * p[0]
+            sum_ = np.fmod(d, b) * pArr[0]
             for t in range(1, n):
-                d = floor(d / b)
-                sum_ += fmod(d, b) * p[t]
-            h[j*dim + i] = sum_
-    return h.reshape(nbpts, dim)
+                d = np.floor(d / b)
+                sum_ += np.fmod(d, b) * pArr[t]
+            hArr[j*dims + i] = sum_
+    return hArr.reshape(nb_pts, dims)
 
 
 def SliceCalculate(bin_x_in,bin_y_in,z_hlt,i,StepZ,NumberOfSlices,interpolator,f_Z,new_x,new_y,Non_Zero_Z,Num_Of_Slice_Particles,minz,JDFSmoothing,RandomHaltonSequence):
@@ -211,7 +210,7 @@ if __name__ == '__main__':
     e_ch=1.602e-19              # charge of one electron
     
     #*************************************************************
-    JDFSmoothing=100
+    JDFSmoothing=100.0
     
     
     
