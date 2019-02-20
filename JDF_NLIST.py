@@ -30,60 +30,57 @@ os.nice(20)
 def JDF_CORE(f_Z,Xin,Yin,dist_in,varargin,DDDx,DDDy,DDDz,NoOfElec):
     res=varargin
     col_dist=np.sum(dist_in,0)
-    Xin2=np.linspace(np.min(Xin),np.max(Xin),np.rint(res*len(Xin)))
-    Yin2=np.linspace(np.min(Yin),np.max(Yin),np.rint(res*len(Yin)))
+    Xh=np.linspace(np.min(Xin),np.max(Xin),np.rint(res*len(Xin)))
+    Yh=np.linspace(np.min(Yin),np.max(Yin),np.rint(res*len(Yin)))
     f_col_dist=interpolate.interp1d(Xin,col_dist)
-    col_dist=f_col_dist(Xin2)
-#    check to make sure interpolated values are positive
-    if any(col_dist<0):
-        #col_dist=abs(col_dist)
-        col_dist=0.0
-        print 'Interpolation generated negative probability values.'
-        
+    col_dist=f_col_dist(Xh)
+#   Make sure interpolated values are positive
+    col_dist=col_dist.clip(min=0.0)  
+     
     col_dist=col_dist/np.sum(col_dist)
     DDDgx=DDDx
     DDDgy=DDDy
-    ind1=GenerateParticle(col_dist,DDDgx)
+    indx_X=GenerateParticle(col_dist,DDDgx)
   
-    x0=Xin2[ind1]
+    x0=Xh[indx_X]
 
 #    find corresponding indices and weights in the other dimension
-    ind_temp = np.argsort(np.square(x0-Xin))   
-    ind_temp = ind_temp[:,:2]
+    indx_temp = np.argsort(np.square(x0-Xin))   
+    indx_temp = indx_temp[:,:2]
 
 
-    low_val = np.min(ind_temp)
-    high_val = np.max(ind_temp)
+    min_val = np.min(indx_temp)
+    max_val = np.max(indx_temp)
 
-    Xlow=Xin[low_val]
-    Xhigh=Xin[high_val]
+    X_min=Xin[min_val]
+    X_max=Xin[max_val]
     
-    w1=1.-(x0-Xlow)/(Xhigh-Xlow)
-    w2=1.-(Xhigh-x0)/(Xhigh-Xlow)
+    tw1=1.0-(x0-X_min)/(X_max-X_min)
+    tw2=1.0-(X_max-x0)/(X_max-X_min)
     
-    row_dist=w1*dist_in[:,low_val] + w2*dist_in[:,high_val]
+    row_dist=tw1*dist_in[:,min_val] + tw2*dist_in[:,max_val]
 
 #pick column distribution type
 
     f_row_dist=interpolate.interp1d(Yin,row_dist[0])
-    row_dist=f_row_dist(Yin2)
+    row_dist=f_row_dist(Yh)
     row_dist=row_dist/np.sum(row_dist)
-    ind2=GenerateParticle(row_dist,DDDgy)
-    y0=Yin2[ind2]
+    indx_Y=GenerateParticle(row_dist,DDDgy)
+    y0=Yh[indx_Y]
     #NoOfElec=(Non_Zero_Z)*(f_Z(DDDz)/(NumberOfSlices))/(Num_Of_Slice_Particles)
     #print NoOfElec
     #if NoOfElec<=0.0:
     #    print 'Negative or zero electron number in slice !!!!'
     return np.vstack((x0,y0,DDDz,NoOfElec))
     
-def GenerateParticle(P,DDDD):
-    Pnorm=P/np.sum(P)
-    Pcum=np.cumsum(Pnorm)
-    Pcum=np.sort(Pcum)
+def GenerateParticle(PDF_xy,DDDD):
+    P_NORMAL=PDF_xy/np.sum(PDF_xy)
+    P_CDF=np.cumsum(P_NORMAL)
+    P_CDF=np.sort(P_CDF)
     R=np.empty((1,1))
     R.fill(DDDD)
-    inds = np.digitize(R,Pcum)
-    return inds
+    indexes = np.digitize(R,P_CDF)
+    return indexes
  
    
 def HaltonRandomNumber(dim, nbpts):
