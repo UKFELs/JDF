@@ -26,7 +26,7 @@ os.nice(20)
 ##################################################################
 ##################################################################
 
-
+# Core procedure for JDF routine
 def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
     init_column_dist=np.sum(dist_in,0)
     Xh=np.linspace(np.min(X_inp),np.max(X_inp),np.rint(smoothing*len(X_inp)))
@@ -69,7 +69,7 @@ def JDF_CORE(f_Z,X_inp,Y_inp,dist_in,smoothing,rand_x,rand_y,DDDz,NoOfElec):
     return np.vstack((x0,y0,DDDz,NoOfElec))
     
  
-    
+# Generate particle X coordinate    
 def GenerateParticleX(PDF_x,ranDx,Xhin):
     Px_CDF=np.cumsum(PDF_x)
     Px_CDF=np.sort(Px_CDF)
@@ -77,13 +77,15 @@ def GenerateParticleX(PDF_x,ranDx,Xhin):
     x0=f_X(ranDx)
     return x0
 
+# Generate particle Y coordinate
 def GenerateParticleY(PDF_y,ranDy,Yhin):
     Py_CDF=np.cumsum(PDF_y)
     Py_CDF=np.sort(Py_CDF)
     f_Y = interpolate.interp1d(Py_CDF, Yhin,fill_value='extrapolate')
     y0=f_Y(ranDy)
     return y0
-   
+
+# Generate Halton sequences   
 def HaltonRandomNumber(dims, nb_pts):
     hArr = np.empty(nb_pts * dims)
     hArr.fill(np.nan)
@@ -107,7 +109,7 @@ def HaltonRandomNumber(dims, nb_pts):
             hArr[j*dims + i] = sum_
     return hArr.reshape(nb_pts, dims)
 
-
+# Routine that calculates new microparticles positions and weights for selected (just one) slice
 def SliceCalculate(bin_x_in,bin_y_in,z_hlt,i,StepZ,NumberOfSlices,interpolator,f_Z,new_x,new_y,Non_Zero_Z,Num_Of_Slice_Particles,minz,JDFSmoothing,RandomHaltonSequence):
     print 'Slice ',i,' of ',NumberOfSlices
     new_z=np.full((1),(minz+(StepZ*i)))
@@ -133,7 +135,7 @@ def SliceCalculate(bin_x_in,bin_y_in,z_hlt,i,StepZ,NumberOfSlices,interpolator,f
 ##################################################################
 
 
-
+# Main routine for JDF
 if __name__ == '__main__':
 
 
@@ -181,7 +183,7 @@ if __name__ == '__main__':
         S_factor=PARAMS_JDF.BeamStretchFactor
     except:
         S_factor = 0.0
-    
+    # Print to screen parameters used for calculations.
     #==============================================================================
     print 'User defined parameters:'
     print 'k_u = ',k_u
@@ -286,12 +288,15 @@ if __name__ == '__main__':
     x0y0z0=np.vstack((mA_X,mA_Y,mA_Z)).T
     
     
-    
+    # Create 3D particles density map
     HxHyHz,edges_XYZ=np.histogramdd(x0y0z0,bins=(binnumber_X, binnumber_Y,binnumber_Z),weights=mA_WGHT)
     print 'Histogram done...'
+    # Apply Gaussian filter to smoothen density map artifacts (1.0 is default value)
+    # if user wish to use 'raw' data the below line should be commented
     HxHyHz=ndimage.gaussian_filter(HxHyHz,1.0)
     
     
+    # Map the 3D density map onto equispaced meshgrid
     new_x=np.linspace(np.min(mA_X),np.max(mA_X),binnumber_X)
     new_y=np.linspace(np.min(mA_Y),np.max(mA_Y),binnumber_Y)
     new_z=np.linspace(np.min(mA_Z),np.max(mA_Z),binnumber_Z)
@@ -302,6 +307,7 @@ if __name__ == '__main__':
     positions = positions[positions[:,3]>0.0]
     xyzpoints=np.vstack((positions[:,0],positions[:,1],positions[:,2])).T
     
+    # Interpolate the 3D histogram (meshgrid) into continuous distribution (nearest neighbor or linear interpolation allowed)
     ### Linear interpolation - slow but more accurate
     #interpolator=interpolate.LinearNDInterpolator(xyzpoints,positions[:,3],rescale=True,fill_value=0)
     
@@ -326,9 +332,8 @@ if __name__ == '__main__':
 
     StepZ=(maxz-minz)/NumberOfSlices
 
-    #result2=JDF_PARALLEL(NumberOfSlices,StepZ,minx,maxx,miny,maxy,interpolator,Non_Zero_Z,f_Z,Num_Of_Slice_Particles,minz,RandomHaltonSequence)
-    #new_x=np.linspace(minx,maxx,100)
-    #new_y=np.linspace(miny,maxy,100)
+    # Sweep over all slices along Z-axis (longitudinal direction) and generate new microparticles
+    # Routine is parallel and uses ALL available cores
     pool = multiprocessing.Pool()
     print 'Executing main JDF loop...'
     result2 = []
@@ -357,7 +362,7 @@ if __name__ == '__main__':
 
     
     
-    
+    # Rearrange the output from parallel loop above
     print 'Output array shape is: ',np.shape(result2)
     Total_Number_Of_Particles=len(result2)*Num_Of_Slice_Particles
     print 'Total number of particles = ',Total_Number_Of_Particles
@@ -377,12 +382,12 @@ if __name__ == '__main__':
             Full_Z[counter]=result2[i][j][2]
             Full_Ne[counter]=result2[i][j][3]
             counter=counter+1
-    
+    # Generate noise
     # Add noise
     print 'Adding noise...'
     Rand_Z=(StepZ*(np.random.random(len(Full_Z)) - 0.50))/np.sqrt(Full_Ne)
     Full_Z=Full_Z+Rand_Z
-    
+    # Interpolate momentum data onto new microparticles (griddata used)
     print 'Starting to interpolate momentum data... - takes time' 
     
     def Calculate_PX(): 
@@ -394,7 +399,7 @@ if __name__ == '__main__':
     def Calculate_PZ(): 
         Full_PZ = interpolate.griddata((mA_X.ravel(), mA_Y.ravel(), mA_Z.ravel()),mA_PZ.ravel(),(Full_X, Full_Y, Full_Z), method='linear',rescale=True)
         return Full_PZ
-    
+    # Parallel momentum data mapping
     from multiprocessing.pool import ThreadPool
     pool = ThreadPool(processes=3)
     async_result_PX = pool.apply_async(Calculate_PX, ()) 
@@ -414,13 +419,13 @@ if __name__ == '__main__':
     # Merge all data into one array
     x_px_y_py_z_pz_NE = np.vstack([Full_X.flat,Full_PX.flat,Full_Y.flat,Full_PY.flat,Full_Z.flat,Full_PZ.flat,Full_Ne.flat]).T
     
-    # print 'Add Poisson noise to particle weights...'  (AJTC)
+    # Add Poisson noise to particle weights
     x_px_y_py_z_pz_NE[:,6]=np.random.poisson(x_px_y_py_z_pz_NE[:,6])
     
     # Remove all particles with weights <= zero
     x_px_y_py_z_pz_NE=x_px_y_py_z_pz_NE[x_px_y_py_z_pz_NE[:,6] > 0]
     
-    # Check for NaN calues in data - happens when using 'linear' option in momentum interpolations (griddata parameter)
+    # Check for NaN calues in data - it sometimes happen when using 'linear' option in momentum interpolations (griddata parameter)
     NaN_Mask=~np.any(np.isnan(x_px_y_py_z_pz_NE), axis=1)
     x_px_y_py_z_pz_NE=x_px_y_py_z_pz_NE[NaN_Mask]
     
